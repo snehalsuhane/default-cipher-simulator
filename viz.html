@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEFAULT Cipher: Architecture Sandbox</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #121212; color: #e0e0e0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h1 { text-align: center; color: #00e676; border-bottom: 1px solid #333; padding-bottom: 15px; }
+        
+        .architecture-panel { display: flex; flex-direction: column; gap: 15px; margin: 30px 0; padding: 20px; background: #252525; border-radius: 8px; }
+        .layer-control { display: flex; align-items: center; justify-content: space-between; }
+        .layer-control input[type=range] { flex-grow: 1; margin: 0 20px; cursor: pointer; }
+        .layer-label { width: 150px; font-weight: bold; }
+        .layer-val { width: 80px; text-align: right; background: #333; padding: 5px; border-radius: 4px; }
+        
+        .layer-blue { color: #4fc3f7; }
+        .layer-red { color: #ef5350; }
+
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .meter-card { background: #2a2a2a; padding: 20px; border-radius: 8px; text-align: center; border-top: 4px solid #555; transition: 0.3s; }
+        .meter-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; margin-bottom: 10px; }
+        .meter-value { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+        .meter-status { font-size: 12px; font-weight: bold; padding: 5px; border-radius: 4px; }
+
+        .status-fail { background: #ffebee; color: #c62828; }
+        .status-pass { background: #e8f5e9; color: #2e7d32; }
+
+        .quantum-stats { grid-column: span 3; background: #1a237e; padding: 15px; border-radius: 8px; display: flex; justify-content: space-around; font-family: monospace; font-size: 16px;}
+        .q-metric { color: #8c9eff; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Cipher Architecture Sandbox</h1>
+    <p style="text-align: center; color: #bbb;">Balance physical DFA resilience, classical mathematical security, and quantum Grover costs by adjusting the SPN layers.</p>
+
+    <div class="architecture-panel">
+        <div class="layer-control layer-blue">
+            <span class="layer-label">Top DEFAULT-LAYER<br><small>(LS S-Boxes)</small></span>
+            <input type="range" id="topRounds" min="0" max="40" value="0" oninput="calculateSecurity()">
+            <span class="layer-val" id="topVal">0 Rds</span>
+        </div>
+        <div class="layer-control layer-red">
+            <span class="layer-label">Middle DEFAULT-CORE<br><small>(Non-LS S-Boxes)</small></span>
+            <input type="range" id="coreRounds" min="0" max="40" value="0" oninput="calculateSecurity()">
+            <span class="layer-val" id="coreVal">0 Rds</span>
+        </div>
+        <div class="layer-control layer-blue">
+            <span class="layer-label">Bottom DEFAULT-LAYER<br><small>(LS S-Boxes)</small></span>
+            <input type="range" id="bottomRounds" min="0" max="40" value="0" oninput="calculateSecurity()">
+            <span class="layer-val" id="bottomVal">0 Rds</span>
+        </div>
+    </div>
+
+    <div class="quantum-stats">
+        <div>Quantum T-Gates: <span id="tGateTotal" class="q-metric">0</span></div>
+        <div>Total Rounds: <span id="totalRounds" class="q-metric">0</span></div>
+    </div>
+
+    <div class="dashboard">
+        <div class="meter-card" id="cardDFA">
+            <div class="meter-title">Physical DFA Security</div>
+            <div class="meter-value" id="valDFA">2^0</div>
+            <div class="meter-status" id="statDFA">VULNERABLE</div>
+        </div>
+        
+        <div class="meter-card" id="cardClassical">
+            <div class="meter-title">Classical Differential Prob.</div>
+            <div class="meter-value" id="valClassical">2^0</div>
+            <div class="meter-status" id="statClassical">VULNERABLE</div>
+        </div>
+
+        <div class="meter-card" id="cardQuantum">
+            <div class="meter-title">Post-Quantum Status</div>
+            <div class="meter-value" id="valQuantum">Below Threshold</div>
+            <div class="meter-status" id="statQuantum">VULNERABLE</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculateSecurity() {
+        let top = parseInt(document.getElementById('topRounds').value);
+        let core = parseInt(document.getElementById('coreRounds').value);
+        let bottom = parseInt(document.getElementById('bottomRounds').value);
+
+        // Update Labels
+        document.getElementById('topVal').innerText = top + " Rds";
+        document.getElementById('coreVal').innerText = core + " Rds";
+        document.getElementById('bottomVal').innerText = bottom + " Rds";
+        document.getElementById('totalRounds').innerText = (top + core + bottom);
+
+        // 1. DFA Security (Relies mostly on boundary LS layers)
+        // DEFAULT guarantees 2^64 if boundary layer exists. 
+        let dfaSec = 0;
+        if (bottom >= 1) dfaSec = 64; 
+        document.getElementById('valDFA').innerText = "2^" + dfaSec;
+        updateCard('cardDFA', 'statDFA', dfaSec >= 64, dfaSec >= 64 ? "SECURE (MinFs = -1)" : "VULNERABLE");
+
+        // 2. Classical Differential Security (Requires high rounds to drop probability)
+        // Very rough approximation based on paper: LS layer adds ~2.2 per round, Core adds ~1 per round. Total needs to exceed 128.
+        let diffSec = Math.floor((top * 2.28) + (core * 1.0) + (bottom * 2.28));
+        document.getElementById('valClassical').innerText = "2^-" + diffSec;
+        updateCard('cardClassical', 'statClassical', diffSec >= 128, diffSec >= 128 ? "SECURE (> 2^-128)" : "VULNERABLE");
+
+        // 3. Quantum Grover Cost
+        // 32 S-boxes per round. LS costs 14 T-gates. Non-LS costs 42 T-gates. 
+        let tGates = ((top + bottom) * 32 * 14) + (core * 32 * 42);
+        
+        // Oracle cost doubles it (Forward + Reverse evaluation)
+        let totalOracleTGates = tGates * 2;
+        document.getElementById('tGateTotal').innerText = totalOracleTGates.toLocaleString();
+
+        // NIST Level 1 Calibration (Approximate target: ~150k+ T-gates with depth = 2^157 total cost metric)
+        let isQuantumSecure = totalOracleTGates > 115000; 
+        document.getElementById('valQuantum').innerText = isQuantumSecure ? "NIST Level 1" : "Fails NIST Target";
+        updateCard('cardQuantum', 'statQuantum', isQuantumSecure, isQuantumSecure ? "SECURE" : "TOO CHEAP TO EVALUATE");
+    }
+
+    function updateCard(cardId, statId, isPass, text) {
+        let card = document.getElementById(cardId);
+        let stat = document.getElementById(statId);
+        
+        if(isPass) {
+            card.style.borderTopColor = "#2e7d32";
+            stat.className = "meter-status status-pass";
+        } else {
+            card.style.borderTopColor = "#c62828";
+            stat.className = "meter-status status-fail";
+        }
+        stat.innerText = text;
+    }
+
+    // Init
+    calculateSecurity();
+</script>
+</body>
+</html>
